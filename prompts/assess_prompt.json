@@ -6,7 +6,7 @@
         "<Speech><SpeechHere></Speech> Please assess the severity of the repeated phonemes in the speech you just heard, using a scale from 1 to 7, where higher values correspond to more severely impaired speech. The scoring options are: 1. Within normal limits, 2. Mildly impaired, 3-4. Moderately impaired, 5-7. Severely impaired.",
         "<Speech><SpeechHere></Speech> Kindly rate the severity of the repeated phonemes in the speech you’ve just heard on a scale of 1 to 7, with higher numbers indicating more severe speech impairment. The scale is as follows: 1. Within normal limits, 2. Mildly impaired, 3-4. Moderately impaired, 5-7. Severely impaired."
     ],
-    "<Speech><SpeechHere></Speech> Rate": [
+    "Rate": [
         "<Speech><SpeechHere></Speech> Please rate the speed of the speech you just heard on a scale from 1 to 7, where higher numbers indicate more severely impaired speech. Your options are: 1. Within normal limits, 2. Mildly impaired, 3-4. Moderately impaired, 5-7. Severely impaired.",
         "<Speech><SpeechHere></Speech> Please evaluate the speed of the speech you just listened to, using a scale from 1 to 7. A higher score indicates greater impairment. The options are: 1. Within normal limits, 2. Mildly impaired, 3-4. Moderately impaired, 5-7. Severely impaired.",
         "<Speech><SpeechHere></Speech> Rate the speed of the speech you heard, on a scale of 1 to 7, where higher numbers reflect more severe impairment. The scale is as follows: 1. Within normal limits, 2. Mildly impaired, 3-4. Moderately impaired, 5-7. Severely impaired.",
