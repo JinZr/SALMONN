@@ -60,7 +60,12 @@ class SALMONNDataset(Dataset):
     def __getitem__(self, index):
         ann = self.annotation[index]
 
-        audio, sr = sf.read(ann["path"])
+        try:
+            audio, sr = sf.read(ann["path"])
+        except Exception as e:
+            print(f"{e}")
+            print(f"Error reading {ann['path']}")
+            raise e
         if len(audio.shape) == 2: # stereo to mono
             audio = audio[:, 0]
         if "expand_wav" in ann:

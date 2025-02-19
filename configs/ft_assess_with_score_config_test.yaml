@@ -49,16 +49,16 @@ model:
   end_sym: "</s>"
 
 datasets:
-  train_ann_path: "/home/jinzr/nfs/projects/qualispeech/salmonn_qa_pairs_filtered/08626c89-3dbd-4756-488d-08db66e486e4.json"
-  valid_ann_path: "/home/jinzr/nfs/projects/qualispeech/salmonn_qa_pairs_filtered/08626c89-3dbd-4756-488d-08db66e486e4.json"
-  test_ann_path: "/home/jinzr/nfs/projects/qualispeech/salmonn_qa_pairs_filtered/08626c89-3dbd-4756-488d-08db66e486e4.json"
+  train_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/train.json"
+  valid_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
+  test_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
 
   whisper_path: "/home/jinzr/hdd/speech_accessibility/SALMONN-13B/whisper-large-v2"
 
 run:
   # log & settings
   seed: 42
-  output_dir: "./SALMONN-13B-zero-shot"
+  output_dir: "./SALMONN-13B-ft-w-scores"
   evaluate: True # if True, only evaluate model on test data
 
   log_freq: 5

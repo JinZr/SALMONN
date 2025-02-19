@@ -231,10 +231,10 @@ class Runner:
         final_result_file = os.path.join(result_dir, "%s.json" % filename)
 
         try:
-            json.dump(result, open(result_file, "w"), ensure_ascii=False)
+            json.dump(result, open(result_file, "w"), ensure_ascii=False, indent=4)
         except Exception as e:
             logging.warning(f"Error saving {result_file}. Error: {e}")
-            json.dump(result, open(result_file, "w", encoding="utf-8"), ensure_ascii=False)
+            json.dump(result, open(result_file, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
         if is_dist_avail_and_initialized():
             dist.barrier()
@@ -255,10 +255,10 @@ class Runner:
                 result += res
 
             try:
-                json.dump(result, open(final_result_file, "w"), ensure_ascii=False)
+                json.dump(result, open(final_result_file, "w"), ensure_ascii=False, indent=4)
             except Exception as e:
                 logging.warning(f"Error saving {final_result_file}. Error: {e}")
-                json.dump(result, open(final_result_file, "w", encoding="utf-8"), ensure_ascii=False)
+                json.dump(result, open(final_result_file, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
             print("result file saved to %s" % final_result_file)
 
@@ -314,7 +314,7 @@ class Runner:
         if isinstance(stats, dict):
             log_stats = {**{f"{split_name}_{k}": v for k, v in stats.items()}}
             with open(os.path.join(self.output_dir, "log.txt"), "a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+                f.write(json.dumps(log_stats, indent=4) + "\n")
         elif isinstance(stats, list):
             pass
 
