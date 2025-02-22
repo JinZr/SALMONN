@@ -13,38 +13,42 @@
 #    limitations under the License.
 
 import copy
-import os
-import json
 import csv
-from tqdm import tqdm
+import json
+import os
 import random
-from torch.nn.utils.rnn import pad_sequence
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Sequence
 from fractions import Fraction
-import soundfile as sf
+from typing import Callable, Dict, Sequence
 
+import numpy as np
+import soundfile as sf
 import torch
 import torch.distributed as dist
 import transformers
-from torch.utils.data import Dataset
-import numpy as np
-from tqdm import tqdm
 from pytorchvideo import transforms as pv_transforms
-from pytorchvideo.data.clip_sampling import ConstantClipsPerVideoSampler, UniformClipSampler
+from pytorchvideo.data.clip_sampling import (ConstantClipsPerVideoSampler,
+                                             UniformClipSampler)
 from pytorchvideo.data.encoded_video import EncodedVideo
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset
+from tqdm import tqdm
 from transformers import WhisperFeatureExtractor
 
-
-AUDIO_EXISTANCE = ["Is there any sound?", "Can you hear anything?", "Is there audio with this video?"]
+AUDIO_EXISTANCE = [
+    "Is there any sound?",
+    "Can you hear anything?",
+    "Is there audio with this video?",
+]
 AUDIO_VIDEO_MATCHING = [
     "Is the audio compatible with the video?",
     "Does the audio come from the same source as the video?",
-    "Is the audio related to the video?"
+    "Is the audio related to the video?",
 ]
 video_specaug_params = {
     "mask_rate": 0.0,
 }
+
 
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
@@ -52,40 +56,43 @@ class SupervisedDataset(Dataset):
     def __init__(self, data_path: str, image_root_path: str):
         super(SupervisedDataset, self).__init__()
 
-        with open(data_path, 'r') as f:
+        with open(data_path, "r") as f:
             json_data = json.load(f)
 
         self.image_path_list, self.caption_list = [], []
         for item in json_data:
             one_image_name, one_caption = item["image_name"], item["conversation"]
             # TODO: stage 2 dataset format is invalid
-            if not one_image_name.endswith('.jpg'):
-                one_image_name += '.jpg'
-            one_image_path = image_root_path + '/{}'.format(one_image_name)
+            if not one_image_name.endswith(".jpg"):
+                one_image_name += ".jpg"
+            one_image_path = image_root_path + "/{}".format(one_image_name)
             self.image_path_list.append(one_image_path)
             self.caption_list.append(one_caption)
-        print(f'[!] collect {len(self.image_path_list)} samples for training')
+        print(f"[!] collect {len(self.image_path_list)} samples for training")
 
-    def __len__(self): # number of instances
+    def __len__(self):  # number of instances
         return len(self.image_path_list)
 
-    #def __getitem__(self, i) -> Dict[str, torch.Tensor]: # how to get item, 取一个样本
+    # def __getitem__(self, i) -> Dict[str, torch.Tensor]: # how to get item, 取一个样本
     def __getitem__(self, i):
         print(i)
-        return dict(image_paths=self.image_path_list[i], output_texts=self.caption_list[i])
+        return dict(
+            image_paths=self.image_path_list[i], output_texts=self.caption_list[i]
+        )
 
     def collate(self, instances):
-        image_paths, output_texts = tuple([instance[key] for instance in instances] for key in ("image_paths", "output_texts"))
-        return dict(
-            image_paths=image_paths,
-            output_texts=output_texts
+        image_paths, output_texts = tuple(
+            [instance[key] for instance in instances]
+            for key in ("image_paths", "output_texts")
         )
+        return dict(image_paths=image_paths, output_texts=output_texts)
 
 
 class SupervisedAudioVisualDataset(Dataset):
     """Dataset for supervised fine-tuning with audio captioning."""
 
-    def __init__(self,
+    def __init__(
+        self,
         data_type: str,
         audio_data_path: str = "",
         audio_root_path: str = "",
@@ -106,7 +113,7 @@ class SupervisedAudioVisualDataset(Dataset):
         video_only: bool = False,
         use_nemo: bool = False,
         # [npy]
-        use_npy: bool = False
+        use_npy: bool = False,
     ):
         super(SupervisedAudioVisualDataset, self).__init__()
         if audio_data_path == "" and video_data_path == "" and image_data_path == "":
@@ -124,25 +131,45 @@ class SupervisedAudioVisualDataset(Dataset):
         self.use_nemo = use_nemo
         # [npy]
         self.use_npy = use_npy
-        if audio_data_path != "" and "audio" in data_type and audio_data_path is not None:
+        if (
+            audio_data_path != ""
+            and "audio" in data_type
+            and audio_data_path is not None
+        ):
             self.audio_path_list, self.audio_caption_list = self.get_data_json(
-                audio_data_path, audio_root_path, modality="audio",
+                audio_data_path,
+                audio_root_path,
+                modality="audio",
             )
             self.modality_range.append("audio")
         self.image_path_list, self.image_caption_list = [], []
-        if image_data_path != "" and "image" in data_type and image_data_path is not None:
+        if (
+            image_data_path != ""
+            and "image" in data_type
+            and image_data_path is not None
+        ):
             self.image_path_list, self.image_caption_list = self.get_data_json(
-                image_data_path, image_root_path, modality="image",
+                image_data_path,
+                image_root_path,
+                modality="image",
             )
             self.modality_range.append("image")
         self.video_path_list, self.video_caption_list = [], []
-        if video_data_path != "" and "video" in data_type and video_data_path is not None:
+        if (
+            video_data_path != ""
+            and "video" in data_type
+            and video_data_path is not None
+        ):
             self.video_path_list, self.video_caption_list = self.get_data_json(
-                video_data_path, video_root_path, modality="video",
+                video_data_path,
+                video_root_path,
+                modality="video",
             )
             if data_type != "audiovideoimage":
                 self.modality_range.append("video")
-            self.frame_sampler = pv_transforms.UniformTemporalSubsample(num_samples=sample_per_clip)
+            self.frame_sampler = pv_transforms.UniformTemporalSubsample(
+                num_samples=sample_per_clip
+            )
             self.clip_sampler = UniformClipSampler(
                 clip_duration=clip_duration, backpad_last=True
             )
@@ -165,12 +192,14 @@ class SupervisedAudioVisualDataset(Dataset):
         self.modality = random.choice(self.modality_range)
         if self.use_whisper == "true":
             # whispermodel = "/mnt/bn/audio-visual-llm-data/yuwenyi/ckpt/whisper/whisper-large-v3"
-            whispermodel = "/mnt/bn/audio-visual-llm-data/yuwenyi/ckpt/whisper/whisper_large_v2"
+            whispermodel = (
+                "/mnt/bn/audio-visual-llm-data/yuwenyi/ckpt/whisper/whisper_large_v2"
+            )
             self.transform = WhisperFeatureExtractor.from_pretrained(whispermodel)
             self.use_whisper = True
 
-    def get_data_json(self, data_path, root_path, modality='image'):
-        with open(data_path, 'r') as f:
+    def get_data_json(self, data_path, root_path, modality="image"):
+        with open(data_path, "r") as f:
             json_data = json.load(f)
             # if not self.training:
             #     json_data = json_data[:2000]
@@ -189,15 +218,21 @@ class SupervisedAudioVisualDataset(Dataset):
             if modality in ["image", "video", "audio"]:
                 one_path = one_image_name
             else:
-                one_path = root_path + '/{}'.format(one_image_name)
+                one_path = root_path + "/{}".format(one_image_name)
             # if modality == "image" or os.path.exists(one_path):
             path_list.append(one_path)
             caption_list.append(one_caption)
-        print(f'[!] collect {len(path_list)} {modality} samples for {"train" if self.training else "valid"}')
+        print(
+            f'[!] collect {len(path_list)} {modality} samples for {"train" if self.training else "valid"}'
+        )
         return path_list, caption_list
 
-    def __len__(self): # number of instances
-        return len(self.audio_path_list) + len(self.image_path_list) + len(self.video_path_list)
+    def __len__(self):  # number of instances
+        return (
+            len(self.audio_path_list)
+            + len(self.image_path_list)
+            + len(self.video_path_list)
+        )
 
     def get_audio(self, i, audiopath=None):
         i = i % max(len(self.audio_path_list), 1)
@@ -208,9 +243,18 @@ class SupervisedAudioVisualDataset(Dataset):
             if len(audio.shape) == 2:
                 audio = audio[:, 0]
             if audio.shape[0] < 3 * self.sample_rate:
-                audio = np.concatenate((audio, np.zeros((3 * self.sample_rate - audio.shape[0]), dtype=float)), axis=0)
+                audio = np.concatenate(
+                    (
+                        audio,
+                        np.zeros((3 * self.sample_rate - audio.shape[0]), dtype=float),
+                    ),
+                    axis=0,
+                )
             if len(audio) > 30 * self.sample_rate and self.sin_pos:
-                audio_list = [audio[i: i + 30 * self.sample_rate] for i in range(0, len(audio), 30 * self.sample_rate)]
+                audio_list = [
+                    audio[i : i + 30 * self.sample_rate]
+                    for i in range(0, len(audio), 30 * self.sample_rate)
+                ]
                 spectrogram_list = []
                 for audio_piece in audio_list:
                     spectrogram_piece = self.transform(
@@ -219,11 +263,15 @@ class SupervisedAudioVisualDataset(Dataset):
                         return_tensors="pt",
                         max_length=30 * self.sample_rate,
                     )
-                    spectrogram_list.append(spectrogram_piece["input_features"].squeeze())
+                    spectrogram_list.append(
+                        spectrogram_piece["input_features"].squeeze()
+                    )
                 spectrogram = torch.stack(spectrogram_list, dim=0)
                 return dict(
                     image_paths=spectrogram,
-                    output_texts=copy.deepcopy(self.audio_caption_list[i]) if self.audio_caption_list != [] else None,
+                    output_texts=copy.deepcopy(self.audio_caption_list[i])
+                    if self.audio_caption_list != []
+                    else None,
                     modality="audio",
                     orig_paths=audiopath,
                     raw_audio=audio_list if self.return_raw else None,
@@ -238,17 +286,23 @@ class SupervisedAudioVisualDataset(Dataset):
                 spectrogram = spectrogram["input_features"].squeeze()
                 return dict(
                     image_paths=spectrogram,
-                    output_texts=copy.deepcopy(self.audio_caption_list[i]) if self.audio_caption_list != [] else None,
+                    output_texts=copy.deepcopy(self.audio_caption_list[i])
+                    if self.audio_caption_list != []
+                    else None,
                     modality="audio",
                     orig_paths=audiopath,
-                    raw_audio=[audio[:30 * self.sample_rate]] if self.return_raw else None,
+                    raw_audio=[audio[: 30 * self.sample_rate]]
+                    if self.return_raw
+                    else None,
                 )
         elif self.use_nemo:
             pass
         else:
             return dict(
                 image_paths=audiopath,
-                output_texts=copy.deepcopy(self.audio_caption_list[i]) if self.audio_caption_list != [] else None,
+                output_texts=copy.deepcopy(self.audio_caption_list[i])
+                if self.audio_caption_list != []
+                else None,
                 modality="audio",
             )
 
@@ -259,7 +313,11 @@ class SupervisedAudioVisualDataset(Dataset):
             imagepath = self.image_path_list[i][0]
         else:
             imagepath = self.image_path_list[i]
-        return dict(image_paths=imagepath, output_texts=copy.deepcopy(self.image_caption_list[i]), modality="image")
+        return dict(
+            image_paths=imagepath,
+            output_texts=copy.deepcopy(self.image_caption_list[i]),
+            modality="image",
+        )
 
     def get_video(self, i, videopath=None):
         if videopath is None:
@@ -270,8 +328,12 @@ class SupervisedAudioVisualDataset(Dataset):
             videopath = videopath[0]
 
         if self.training:
-            if self.use_npy: # npy training
-                return dict(image_paths=videopath, output_texts=copy.deepcopy(self.video_caption_list[i]), modality="video")
+            if self.use_npy:  # npy training
+                return dict(
+                    image_paths=videopath,
+                    output_texts=copy.deepcopy(self.video_caption_list[i]),
+                    modality="video",
+                )
         video = EncodedVideo.from_path(
             videopath,
             decoder="decord",
@@ -286,16 +348,18 @@ class SupervisedAudioVisualDataset(Dataset):
                 duration = float(durations[1]) - float(durations[0])
         else:
             duration = video.duration
-        
-        all_clips_timepoints = self.get_clip_timepoints(
-            self.clip_sampler, duration)
+
+        all_clips_timepoints = self.get_clip_timepoints(self.clip_sampler, duration)
         all_video = []
         for clip_timepoints in all_clips_timepoints:
             # Read the clip, get frames
             try:
                 clip = video.get_clip(clip_timepoints[0], clip_timepoints[1])
                 video_clip = self.frame_sampler(clip["video"])
-                if "mask_rate" in video_specaug_params and random.random() < video_specaug_params["mask_rate"]:
+                if (
+                    "mask_rate" in video_specaug_params
+                    and random.random() < video_specaug_params["mask_rate"]
+                ):
                     video_clip = video_clip * 0  # mask specific video frame
                 video_clip = video_clip / 255.0  # since this is float, need 0-1
                 all_video.append(video_clip)
@@ -303,7 +367,11 @@ class SupervisedAudioVisualDataset(Dataset):
                 print("skipped frame {}".format(clip_timepoints))
                 print(videopath)
                 pass
-        return dict(image_paths=all_video, output_texts=copy.deepcopy(self.video_caption_list[i]), modality="video")
+        return dict(
+            image_paths=all_video,
+            output_texts=copy.deepcopy(self.video_caption_list[i]),
+            modality="video",
+        )
 
     def get_audioimage(self, i):
         image_data = self.get_image(i)
@@ -328,23 +396,36 @@ class SupervisedAudioVisualDataset(Dataset):
                 avmask = 0
             else:
                 audio_data = self.get_audio(i)
-                image_data["output_texts"][0]['value'] = "In the image, " + image_data["output_texts"][0]['value'].lower()
+                image_data["output_texts"][0]["value"] = (
+                    "In the image, " + image_data["output_texts"][0]["value"].lower()
+                )
                 promptlist = [audio_data["output_texts"], image_data["output_texts"]]
                 random.shuffle(promptlist)
                 avmask = 1
                 if random.random() < 0.5:
                     prompt = promptlist[0]
                 else:
-                    userprompt = promptlist[0][0]['value'] + ", and " + promptlist[1][0]['value'].lower()
-                    gptresponse = promptlist[0][1]['value'] + ", and " + promptlist[1][1]['value'].lower()
-                    prompt = [{'from': 'human', 'value': userprompt}, {'from': 'gpt', 'value': gptresponse}]
+                    userprompt = (
+                        promptlist[0][0]["value"]
+                        + ", and "
+                        + promptlist[1][0]["value"].lower()
+                    )
+                    gptresponse = (
+                        promptlist[0][1]["value"]
+                        + ", and "
+                        + promptlist[1][1]["value"].lower()
+                    )
+                    prompt = [
+                        {"from": "human", "value": userprompt},
+                        {"from": "gpt", "value": gptresponse},
+                    ]
         return dict(
             image_paths=[audio_data["image_paths"], image_data["image_paths"]],
             output_texts=prompt,
             modality="audioimage",
             mask_audio=avmask,
             orig_paths=audio_data["orig_paths"],
-            raw_audio=audio_data["raw_audio"]
+            raw_audio=audio_data["raw_audio"],
         )
 
     def get_videoaudioimage(self, i):
@@ -365,9 +446,14 @@ class SupervisedAudioVisualDataset(Dataset):
             else:
                 avmask = [1, 1]
             output_texts = video_data["output_texts"]
-            if self.use_npy and self.training: # npy training
+            if self.use_npy and self.training:  # npy training
                 pass
-            elif random.random() > 0.9 and len(self.audiofiles) != 0 and "yuwenyi" not in audiopath and self.training:
+            elif (
+                random.random() > 0.9
+                and len(self.audiofiles) != 0
+                and "yuwenyi" not in audiopath
+                and self.training
+            ):
                 output_texts[0]["value"] = random.choice(AUDIO_VIDEO_MATCHING)
                 if random.random() > 0.5:
                     audio_data = self.get_audio(i, random.choice(self.audiofiles))
@@ -380,7 +466,7 @@ class SupervisedAudioVisualDataset(Dataset):
                 modality=self.data_type,
                 mask_audio=avmask,
                 orig_paths=audio_data["orig_paths"],
-                raw_audio=audio_data["raw_audio"]
+                raw_audio=audio_data["raw_audio"],
             )
         else:
             video_data = self.get_video(i, videopath)
@@ -390,12 +476,25 @@ class SupervisedAudioVisualDataset(Dataset):
                 mask_audio = [1, 0]
                 # mask_audio = [1, 1]
             else:
-                video_data["output_texts"][0]['value'] = "In the video, " + video_data["output_texts"][0]['value'].lower()
+                video_data["output_texts"][0]["value"] = (
+                    "In the video, " + video_data["output_texts"][0]["value"].lower()
+                )
                 promptlist = [audio_data["output_texts"], video_data["output_texts"]]
                 random.shuffle(promptlist)
-                userprompt = promptlist[0][0]['value'] + ", and, " + promptlist[1][0]['value'].lower()
-                gptresponse = promptlist[0][1]['value'] + ", and, " + promptlist[1][1]['value'].lower()
-                output_texts = [{'from': 'human', 'value': userprompt}, {'from': 'gpt', 'value': gptresponse}]
+                userprompt = (
+                    promptlist[0][0]["value"]
+                    + ", and, "
+                    + promptlist[1][0]["value"].lower()
+                )
+                gptresponse = (
+                    promptlist[0][1]["value"]
+                    + ", and, "
+                    + promptlist[1][1]["value"].lower()
+                )
+                output_texts = [
+                    {"from": "human", "value": userprompt},
+                    {"from": "gpt", "value": gptresponse},
+                ]
                 mask_audio = [1, 1]
             # promptlist = [audio_data["output_texts"], video_data["output_texts"]]
             return dict(
@@ -404,7 +503,7 @@ class SupervisedAudioVisualDataset(Dataset):
                 modality=self.data_type,
                 mask_audio=mask_audio,
                 orig_paths=audio_data["orig_paths"],
-                raw_audio=audio_data["raw_audio"]
+                raw_audio=audio_data["raw_audio"],
             )
 
     def __getitem__(self, i):
@@ -433,7 +532,9 @@ class SupervisedAudioVisualDataset(Dataset):
         if "video" in first_modality:
             length_thred = int(30 / self.clip_duration * self.sample_per_clip)
         for instance in instances:
-            assert instance["modality"] == first_modality # should have the same modality in one minibatch
+            assert (
+                instance["modality"] == first_modality
+            )  # should have the same modality in one minibatch
             if instance["modality"] == "video":
                 if len(instance["image_paths"]) < length_thred:
                     image_paths.append(instance["image_paths"])
@@ -446,43 +547,67 @@ class SupervisedAudioVisualDataset(Dataset):
                         instance["mask_audio"] = [1, 1]
                     else:
                         instance["mask_audio"] = [1, 0]
-                audiomasks.append(instance["mask_audio"] if "mask_audio" in instance else [1, 1])
-                orig_paths.append(instance["orig_paths"] if "orig_paths" in instance else "")
-                raw_audios.append(instance["raw_audio"] if "raw_audio" in instance else None)
+                audiomasks.append(
+                    instance["mask_audio"] if "mask_audio" in instance else [1, 1]
+                )
+                orig_paths.append(
+                    instance["orig_paths"] if "orig_paths" in instance else ""
+                )
+                raw_audios.append(
+                    instance["raw_audio"] if "raw_audio" in instance else None
+                )
             elif instance["modality"] == "audiovideoimage":
                 if self.use_npy or len(instance["image_paths"][1]) < length_thred:
                     image_paths.append(instance["image_paths"])
                     output_texts.append(instance["output_texts"])
-                    audiomasks.append(instance["mask_audio"] if "mask_audio" in instance else [1, 1])
-                    orig_paths.append(instance["orig_paths"] if "orig_paths" in instance else "")
-                    raw_audios.append(instance["raw_audio"] if "raw_audio" in instance else None)
+                    audiomasks.append(
+                        instance["mask_audio"] if "mask_audio" in instance else [1, 1]
+                    )
+                    orig_paths.append(
+                        instance["orig_paths"] if "orig_paths" in instance else ""
+                    )
+                    raw_audios.append(
+                        instance["raw_audio"] if "raw_audio" in instance else None
+                    )
             # reduce if long
             # if len(instance["output_texts"][1]["value"].split()) > 80:
             #     trigger_reduce = max(trigger_reduce, len(instance["output_texts"][1]["value"].split()) // 80)
             if len(instance["output_texts"][1]["value"].split()) > 500:
-                trigger_reduce = max(trigger_reduce, len(instance["output_texts"][1]["value"].split()) // 500)
+                trigger_reduce = max(
+                    trigger_reduce,
+                    len(instance["output_texts"][1]["value"].split()) // 500,
+                )
             elif len(instance["output_texts"]) > 2:
                 trigger_reduce = 3
-        
+
             if "/AMI/BeamformIt/" in instance["orig_paths"]:
                 image_paths = [instance["image_paths"]]
                 output_texts = [instance["output_texts"]]
                 audiomasks = [instance["mask_audio"] if "mask_audio" in instance else 0]
-                orig_paths = [instance["orig_paths"] if "orig_paths" in instance else ""]
-                raw_audios = [instance["raw_audio"] if "raw_audio" in instance else None]
+                orig_paths = [
+                    instance["orig_paths"] if "orig_paths" in instance else ""
+                ]
+                raw_audios = [
+                    instance["raw_audio"] if "raw_audio" in instance else None
+                ]
                 break
-        
+
         if image_paths == []:
             if first_modality == "audiovideoimage":
                 image_paths.append(
-                    [instances[0]["image_paths"][0], instances[0]["image_paths"][1][:length_thred]]
+                    [
+                        instances[0]["image_paths"][0],
+                        instances[0]["image_paths"][1][:length_thred],
+                    ]
                 )
                 audiomasks.append(instances[0]["mask_audio"])
             else:
                 image_paths.append(instances[0]["image_paths"][:length_thred])
             output_texts.append(instances[0]["output_texts"])
             orig_paths.append(instances[0]["orig_paths"])
-            raw_audios.append(instances[0]["raw_audio"] if "raw_audio" in instances[0] else None)
+            raw_audios.append(
+                instances[0]["raw_audio"] if "raw_audio" in instances[0] else None
+            )
         elif len(image_paths) >= 2 and trigger_reduce > 0 and self.training:
             cut_len = len(image_paths) // (trigger_reduce + 1) + 1
             # print("reducing batchsize to {}".format(cut_len))
@@ -508,6 +633,8 @@ class SupervisedAudioVisualDataset(Dataset):
         is_last_clip = False
         end = 0.0
         while not is_last_clip:
-            start, end, _, _, is_last_clip = clip_sampler(end, duration, annotation=None)
+            start, end, _, _, is_last_clip = clip_sampler(
+                end, duration, annotation=None
+            )
             all_clips_timepoints.append((start, end))
         return all_clips_timepoints

@@ -14,11 +14,11 @@
 
 import json
 
-import torch
-from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
-import soundfile as sf
 import numpy as np
+import soundfile as sf
+import torch
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset
 from transformers import WhisperFeatureExtractor
 
 
@@ -40,7 +40,9 @@ class SALMONNDataset(Dataset):
         raw_wav = [torch.from_numpy(s["raw_wav"]) for s in samples]
         raw_wav_length = torch.tensor([len(s["raw_wav"]) for s in samples])
         raw_wav = pad_sequence(raw_wav, batch_first=True, padding_value=0)
-        paddding_mask = torch.arange(raw_wav.size(1)).unsqueeze(0) >= raw_wav_length.unsqueeze(1)
+        paddding_mask = torch.arange(raw_wav.size(1)).unsqueeze(
+            0
+        ) >= raw_wav_length.unsqueeze(1)
 
         text = [s["text"] for s in samples]
         task = [s["task"] for s in samples]
@@ -66,7 +68,7 @@ class SALMONNDataset(Dataset):
             print(f"{e}")
             print(f"Error reading {ann['path']}")
             raise e
-        if len(audio.shape) == 2: # stereo to mono
+        if len(audio.shape) == 2:  # stereo to mono
             audio = audio[:, 0]
         if "expand_wav" in ann:
             for p in ann["expand_wav"]:
@@ -75,12 +77,14 @@ class SALMONNDataset(Dataset):
                     expand_audio = expand_audio[:, 0]
                 sil = np.zeros(1600, dtype=float)
                 audio = np.concatenate((audio, sil, expand_audio), axis=0)
-        if len(audio) < sr: # pad audio to at least 1s
+        if len(audio) < sr:  # pad audio to at least 1s
             sil = np.zeros(sr - len(audio), dtype=float)
             audio = np.concatenate((audio, sil), axis=0)
-        audio = audio[: sr * 30] # truncate audio to at most 30s
+        audio = audio[: sr * 30]  # truncate audio to at most 30s
 
-        spectrogram = self.wav_processor(audio, sampling_rate=sr, return_tensors="pt")["input_features"].squeeze()
+        spectrogram = self.wav_processor(audio, sampling_rate=sr, return_tensors="pt")[
+            "input_features"
+        ].squeeze()
         text = ann["text"]
         task = ann.get("task", "asr")
         Q = ann.get("Q", "")

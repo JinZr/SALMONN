@@ -14,26 +14,14 @@ from types import SimpleNamespace
 import torch
 import torch.nn as nn
 
-from .helpers import (
-    EinOpsRearrange,
-    LearnableLogitScaling,
-    Normalize,
-    SelectElement,
-    SelectEOSAndProject,
-)
-from .multimodal_preprocessors import (
-    AudioPreprocessor,
-    IMUPreprocessor,
-    PadIm2Video,
-    PatchEmbedGeneric,
-    RGBDTPreprocessor,
-    SpatioTemporalPosEmbeddingHelper,
-    TextPreprocessor,
-    ThermalPreprocessor,
-)
-
+from .helpers import (EinOpsRearrange, LearnableLogitScaling, Normalize,
+                      SelectElement, SelectEOSAndProject)
+from .multimodal_preprocessors import (AudioPreprocessor, IMUPreprocessor,
+                                       PadIm2Video, PatchEmbedGeneric,
+                                       RGBDTPreprocessor,
+                                       SpatioTemporalPosEmbeddingHelper,
+                                       TextPreprocessor, ThermalPreprocessor)
 from .transformer import MultiheadAttention, SimpleTransformer
-
 
 ModalityType = SimpleNamespace(
     VISION="vision",
@@ -491,7 +479,7 @@ class ImageBindModel(nn.Module):
         return outputs
 
 
-def imagebind_huge(pretrained=False, store_path=r'.checkpoints'):
+def imagebind_huge(pretrained=False, store_path=r".checkpoints"):
     model = ImageBindModel(
         vision_embed_dim=1280,
         vision_num_blocks=32,
@@ -507,7 +495,9 @@ def imagebind_huge(pretrained=False, store_path=r'.checkpoints'):
     if pretrained:
         if not os.path.exists("{}/imagebind_huge.pth".format(store_path)):
             print(
-                "Downloading imagebind weights to {}/imagebind_huge.pth ...".format(store_path)
+                "Downloading imagebind weights to {}/imagebind_huge.pth ...".format(
+                    store_path
+                )
             )
             os.makedirs(store_path, exist_ok=True)
             torch.hub.download_url_to_file(

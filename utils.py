@@ -15,12 +15,12 @@
 import logging
 import time
 
+import numpy as np
+import soundfile as sf
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
-import soundfile as sf
-import numpy as np
 
-from dist_utils import is_main_process, get_world_size, get_rank
+from dist_utils import get_rank, get_world_size, is_main_process
 
 
 def now():
@@ -40,10 +40,7 @@ def setup_logger():
 def get_dataloader(dataset, config, is_train=True, use_distributed=True):
     if use_distributed:
         sampler = DistributedSampler(
-            dataset,
-            shuffle=is_train,
-            num_replicas=get_world_size(),
-            rank=get_rank()
+            dataset, shuffle=is_train, num_replicas=get_world_size(), rank=get_rank()
         )
     else:
         sampler = None
@@ -138,14 +135,16 @@ class IterLoader:
 
 def prepare_one_sample(wav_path, wav_processor, cuda_enabled=True):
     audio, sr = sf.read(wav_path)
-    if len(audio.shape) == 2: # stereo to mono
+    if len(audio.shape) == 2:  # stereo to mono
         audio = audio[:, 0]
-    if len(audio) < sr: # pad audio to at least 1s
+    if len(audio) < sr:  # pad audio to at least 1s
         sil = np.zeros(sr - len(audio), dtype=float)
         audio = np.concatenate((audio, sil), axis=0)
-    audio = audio[: sr * 30] # truncate audio to at most 30s
+    audio = audio[: sr * 30]  # truncate audio to at most 30s
 
-    spectrogram = wav_processor(audio, sampling_rate=sr, return_tensors="pt")["input_features"]
+    spectrogram = wav_processor(audio, sampling_rate=sr, return_tensors="pt")[
+        "input_features"
+    ]
 
     samples = {
         "spectrogram": spectrogram,

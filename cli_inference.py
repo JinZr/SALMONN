@@ -21,9 +21,10 @@ from config import Config
 from models.salmonn import SALMONN
 from utils import prepare_one_sample
 
-
 parser = argparse.ArgumentParser()
-parser.add_argument("--cfg-path", type=str, required=True, help='path to configuration file')
+parser.add_argument(
+    "--cfg-path", type=str, required=True, help="path to configuration file"
+)
 parser.add_argument("--device", type=str, default="cuda:0")
 parser.add_argument(
     "--options",
@@ -50,7 +51,9 @@ while True:
 
         samples = prepare_one_sample(wav_path, wav_processor)
         prompt = [
-            cfg.config.model.prompt_template.format("<Speech><SpeechHere></Speech> " + prompt.strip())
+            cfg.config.model.prompt_template.format(
+                "<Speech><SpeechHere></Speech> " + prompt.strip()
+            )
         ]
         print("Output:")
         # for environment with cuda>=117
@@ -59,4 +62,6 @@ while True:
         # print(model.generate(samples, cfg.config.generate, prompts=prompt)[0])
     except Exception as e:
         print(e)
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()

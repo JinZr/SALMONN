@@ -20,7 +20,6 @@ from typing import Callable, List
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
-
 from timm.models.layers import DropPath, trunc_normal_
 
 

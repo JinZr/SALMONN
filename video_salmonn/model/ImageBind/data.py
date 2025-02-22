@@ -5,23 +5,23 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import math
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence
 import torchaudio
-import logging
-
-from .models.multimodal_preprocessors import SimpleTokenizer
 from PIL import Image
 from pytorchvideo import transforms as pv_transforms
-from pytorchvideo.data.clip_sampling import ConstantClipsPerVideoSampler, UniformClipSampler
+from pytorchvideo.data.clip_sampling import (ConstantClipsPerVideoSampler,
+                                             UniformClipSampler)
 from pytorchvideo.data.encoded_video import EncodedVideo
-
+from torch.nn.utils.rnn import pad_sequence
 from torchvision import transforms
 from torchvision.transforms._transforms_video import NormalizeVideo
 from torchvision.transforms.functional import InterpolationMode
+
+from .models.multimodal_preprocessors import SimpleTokenizer
 
 DEFAULT_AUDIO_FRAME_SHIFT_MS = 10  # in milliseconds
 
@@ -105,7 +105,9 @@ def load_and_transform_vision_data(image_paths, device):
     return torch.stack(image_ouputs, dim=0)
 
 
-def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_rs=False, hi_rs_cfg=None):
+def load_and_transform_vision_data_blip(
+    image_paths, device, training=False, hi_rs=False, hi_rs_cfg=None
+):
     if image_paths is None:
         return None
 
@@ -127,9 +129,7 @@ def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_
     else:
         data_transform = transforms.Compose(
             [
-                transforms.Resize(
-                    (224, 224), interpolation=InterpolationMode.BICUBIC
-                ),
+                transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=(0.48145466, 0.4578275, 0.40821073),
@@ -150,9 +150,7 @@ def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_
             width, height = image.size
             image_blocks = []
             for _ in range(dup):
-                image_blocks.append(
-                    data_transform(image).to(device).unsqueeze(0)
-                )
+                image_blocks.append(data_transform(image).to(device).unsqueeze(0))
 
             dx = width // n_split * 2
             dy = height // n_split * 2
@@ -163,11 +161,9 @@ def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_
                     box = (x, y, x + dx, y + dy)
                     for _ in range(dup):
                         image_blocks.append(
-                            data_transform(
-                                image.crop(box)
-                            ).to(device).unsqueeze(0)
+                            data_transform(image.crop(box)).to(device).unsqueeze(0)
                         )
-                
+
             # for y in range(0, height, height // 4):
             #     for x in range(0, width, width // 4):
             #         box = (x, y, x + width // 4 * 2, y + height // 4 * 2)
@@ -178,7 +174,7 @@ def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_
             #         )
             image_blocks = torch.cat(image_blocks, dim=0)
             image_ouputs.append(image_blocks)
-            
+
         else:
             image = data_transform(image).to(device)
             image_ouputs.append(image)
@@ -186,7 +182,9 @@ def load_and_transform_vision_data_blip(image_paths, device, training=False, hi_
     if hi_rs:
         image_lens = [img.shape[0] for img in image_ouputs]
         max_image_len = max(image_lens)
-        img_mask = torch.arange(max_image_len).unsqueeze(0) < torch.tensor(image_lens).unsqueeze(1)
+        img_mask = torch.arange(max_image_len).unsqueeze(0) < torch.tensor(
+            image_lens
+        ).unsqueeze(1)
         return pad_sequence(image_ouputs, batch_first=True), img_mask.to(device)
     else:
         return torch.stack(image_ouputs, dim=0)
@@ -222,6 +220,7 @@ def load_and_transform_text(text, device):
     tokens = torch.cat(tokens, dim=0)
     return tokens
 
+
 def load_and_transform_audio_data_fulllen(
     audio_paths,
     device,
@@ -251,7 +250,8 @@ def load_and_transform_audio_data_fulllen(
         if full_lengths < maxlen * sample_rate:
             diffsize = maxlen * sample_rate - full_lengths - 1
             waveform = torch.cat(
-                    [waveform, waveform.new_zeros(waveform.size(0), diffsize)], dim=-1)
+                [waveform, waveform.new_zeros(waveform.size(0), diffsize)], dim=-1
+            )
         full_lengths = min(waveform.size(1), maxlen * sample_rate)
         all_clips = []
         start = 0
@@ -265,7 +265,12 @@ def load_and_transform_audio_data_fulllen(
             if int(end) - int(start) < stepsize:
                 diffsize = stepsize - int(end) + int(start)
                 waveform_clip = torch.cat(
-                    [waveform_clip, waveform_clip.new_zeros(waveform_clip.size(0), diffsize)], dim=-1)
+                    [
+                        waveform_clip,
+                        waveform_clip.new_zeros(waveform_clip.size(0), diffsize),
+                    ],
+                    dim=-1,
+                )
             waveform_melspec = waveform2melspec(
                 waveform_clip, sample_rate, num_mel_bins, target_length
             )
@@ -494,6 +499,7 @@ class ToTHWC(object):
     def __repr__(self):
         return self.__class__.__name__
 
+
 def resize(clip, target_size, interpolation_mode):
     if len(target_size) != 2:
         raise ValueError(
@@ -502,6 +508,7 @@ def resize(clip, target_size, interpolation_mode):
     return torch.nn.functional.interpolate(
         clip, size=target_size, mode=interpolation_mode, align_corners=False
     )
+
 
 class ResizeVideo(object):
     def __init__(self, target_size, interpolation_mode="bilinear"):
@@ -520,6 +527,7 @@ class ResizeVideo(object):
 
     def __repr__(self):
         return self.__class__.__name__ + "(resize_size={0})".format(self.target_size)
+
 
 def load_and_transform_video_data_full(
     video_paths,
@@ -542,9 +550,7 @@ def load_and_transform_video_data_full(
         ]
     )
 
-    clip_sampler = UniformClipSampler(
-        clip_duration=clip_duration, backpad_last=True
-    )
+    clip_sampler = UniformClipSampler(clip_duration=clip_duration, backpad_last=True)
     frame_sampler = pv_transforms.UniformTemporalSubsample(num_samples=sample_per_clip)
 
     maxlen = 0
@@ -585,13 +591,27 @@ def load_and_transform_video_data_full(
         if video.size(0) < maxlen:
             diffsize = maxlen - video.size(0)
             padded_video_mask.append([1] * video.size(0) + [0] * diffsize)
-            video = torch.cat([video, video.new_zeros(
-                diffsize, video.size(1), video.size(2), video.size(3), video.size(4))], dim=0)
+            video = torch.cat(
+                [
+                    video,
+                    video.new_zeros(
+                        diffsize,
+                        video.size(1),
+                        video.size(2),
+                        video.size(3),
+                        video.size(4),
+                    ),
+                ],
+                dim=0,
+            )
         else:
             padded_video_mask.append([1] * video.size(0))
         padded_video_outputs.append(video)
 
-    return torch.stack(padded_video_outputs, dim=0).to(device), torch.tensor(padded_video_mask).to(device)
+    return torch.stack(padded_video_outputs, dim=0).to(device), torch.tensor(
+        padded_video_mask
+    ).to(device)
+
 
 def load_and_transform_video_data_blip(
     video_paths,
@@ -614,9 +634,7 @@ def load_and_transform_video_data_blip(
         ]
     )
 
-    clip_sampler = UniformClipSampler(
-        clip_duration=clip_duration, backpad_last=True
-    )
+    clip_sampler = UniformClipSampler(clip_duration=clip_duration, backpad_last=True)
     frame_sampler = pv_transforms.UniformTemporalSubsample(num_samples=sample_per_clip)
 
     maxlen = 0
@@ -646,7 +664,9 @@ def load_and_transform_video_data_blip(
                 all_video = all_video[:60]
 
         all_video = torch.cat(all_video, dim=1)
-        all_video = video_transform(all_video).transpose(0, 1)  # C, T, H, W -> T, C, H, W
+        all_video = video_transform(all_video).transpose(
+            0, 1
+        )  # C, T, H, W -> T, C, H, W
         if all_video.size(0) > maxlen:
             maxlen = all_video.size(0)
         video_outputs.append(all_video)
@@ -657,13 +677,23 @@ def load_and_transform_video_data_blip(
         if video.size(0) < maxlen:
             diffsize = maxlen - video.size(0)
             padded_video_mask.append([1] * video.size(0) + [0] * diffsize)
-            video = torch.cat([video, video.new_zeros(
-                diffsize, video.size(1), video.size(2), video.size(3))], dim=0)
+            video = torch.cat(
+                [
+                    video,
+                    video.new_zeros(
+                        diffsize, video.size(1), video.size(2), video.size(3)
+                    ),
+                ],
+                dim=0,
+            )
         else:
             padded_video_mask.append([1] * video.size(0))
         padded_video_outputs.append(video)
 
-    return torch.stack(padded_video_outputs, dim=0).to(device), torch.tensor(padded_video_mask).to(device)
+    return torch.stack(padded_video_outputs, dim=0).to(device), torch.tensor(
+        padded_video_mask
+    ).to(device)
+
 
 def load_and_transform_video_data(
     video_paths,

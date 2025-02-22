@@ -1,14 +1,14 @@
-from typing import Optional, Tuple
 import warnings
+from typing import Optional, Tuple
 
 import torch
+from flash_attn.bert_padding import pad_input, unpad_input
+from flash_attn.flash_attn_interface import (flash_attn_func,
+                                             flash_attn_varlen_kvpacked_func,
+                                             flash_attn_varlen_qkvpacked_func)
 from torch import nn
-from .modeling_llama import apply_rotary_pos_emb
-from .modeling_llama import LlamaAttention, LlamaModel
 
-from flash_attn.flash_attn_interface import flash_attn_func, flash_attn_varlen_kvpacked_func, flash_attn_varlen_qkvpacked_func
-from flash_attn.bert_padding import unpad_input, pad_input
-
+from .modeling_llama import LlamaAttention, LlamaModel, apply_rotary_pos_emb
 
 # def forward(
 #     self,
@@ -136,11 +136,13 @@ def forward(
         query_states = query_states.transpose(1, 2)
         key_states = key_states.transpose(1, 2)
         value_states = value_states.transpose(1, 2)
-        output = flash_attn_func(query_states, key_states, value_states, 0.0, softmax_scale=None, causal=True).view(
-            bsz, q_len, -1
-        )
+        output = flash_attn_func(
+            query_states, key_states, value_states, 0.0, softmax_scale=None, causal=True
+        ).view(bsz, q_len, -1)
     else:
-        q, indices, cu_q_lens, max_s = unpad_input(query_states.transpose(1, 2), attention_mask[:, -q_len:])
+        q, indices, cu_q_lens, max_s = unpad_input(
+            query_states.transpose(1, 2), attention_mask[:, -q_len:]
+        )
         kv = torch.stack((key_states, value_states), dim=2).transpose(1, 3)
         kv = kv.reshape(bsz, kv_seq_len, -1)
         kv, _, cu_k_lens, max_k = unpad_input(kv, attention_mask)
@@ -231,7 +233,5 @@ def replace_llama_attn_with_flash_attn(inference=False):
             _prepare_decoder_attention_mask_inference
         )
     else:
-        LlamaModel._prepare_decoder_attention_mask = (
-            _prepare_decoder_attention_mask
-        )
+        LlamaModel._prepare_decoder_attention_mask = _prepare_decoder_attention_mask
     LlamaAttention.forward = forward

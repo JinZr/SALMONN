@@ -1,7 +1,7 @@
 # This script is from https://github.com/salesforce/LAVIS/blob/main/lavis/common/optims.py
 
-import math
 import logging
+import math
 
 import torch
 

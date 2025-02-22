@@ -19,17 +19,19 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
-from utils import *
 from config import Config
+from dataset import SALMONNDataset
 from dist_utils import get_rank, init_distributed_mode
 from models import load_model
-from dataset import SALMONNDataset
 from runner import Runner
+from utils import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='train parameters')
-    parser.add_argument("--cfg-path", type=str, required=True, help='path to configuration file')
+    parser = argparse.ArgumentParser(description="train parameters")
+    parser.add_argument(
+        "--cfg-path", type=str, required=True, help="path to configuration file"
+    )
     parser.add_argument(
         "--options",
         nargs="+",
@@ -65,7 +67,7 @@ def main():
     # initialize distributed training
     init_distributed_mode(run_config)
     setup_seeds(run_config)
-    setup_logger() # set after init_distributed_mode() to only log on master.
+    setup_logger()  # set after init_distributed_mode() to only log on master.
 
     # print config
     cfg.pretty_print()

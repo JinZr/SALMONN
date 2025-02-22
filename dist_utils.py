@@ -6,9 +6,9 @@ Adapted from salesforce@LAVIS. Below is the original copyright:
  For full license text, see the LICENSE_Lavis file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 """
 
-import os
 import datetime
 import functools
+import os
 
 import torch
 import torch.distributed as dist

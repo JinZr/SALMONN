@@ -114,7 +114,9 @@ class MetricLogger(object):
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable, print_freq, header=None, logger=None, start_step=None):
+    def log_every(
+        self, iterable, print_freq, header=None, logger=None, start_step=None
+    ):
         i = 0
         if not header:
             header = ""
@@ -142,9 +144,15 @@ class MetricLogger(object):
             if i % print_freq == 0 or i == len(iterable) - 1:
                 if is_main_process():
                     if logger is not None:
-                        assert start_step is not None, "start_step is needed to compute global_step!"
+                        assert (
+                            start_step is not None
+                        ), "start_step is needed to compute global_step!"
                         for name, meter in self.meters.items():
-                            logger.add_scalar("{}".format(name), float(str(meter)), global_step=start_step+i)
+                            logger.add_scalar(
+                                "{}".format(name),
+                                float(str(meter)),
+                                global_step=start_step + i,
+                            )
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():

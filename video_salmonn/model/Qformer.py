@@ -13,38 +13,28 @@ import math
 import os
 import warnings
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 import torch
-from torch import Tensor, device, dtype, nn
-import torch.utils.checkpoint
-from torch import nn
-from torch.nn import CrossEntropyLoss
 import torch.nn.functional as F
-
+import torch.utils.checkpoint
+from torch import Tensor, device, dtype, nn
+from torch.nn import CrossEntropyLoss
 from transformers.activations import ACT2FN
-from transformers.file_utils import (
-    ModelOutput,
-)
+from transformers.file_utils import ModelOutput
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
-    CausalLMOutputWithCrossAttentions,
-    MaskedLMOutput,
-    MultipleChoiceModelOutput,
-    NextSentencePredictorOutput,
-    QuestionAnsweringModelOutput,
-    SequenceClassifierOutput,
-    TokenClassifierOutput,
-)
-from transformers.modeling_utils import (
-    PreTrainedModel,
-    apply_chunking_to_forward,
-    find_pruneable_heads_and_indices,
-    prune_linear_layer,
-)
-from transformers.utils import logging
+    CausalLMOutputWithCrossAttentions, MaskedLMOutput,
+    MultipleChoiceModelOutput, NextSentencePredictorOutput,
+    QuestionAnsweringModelOutput, SequenceClassifierOutput,
+    TokenClassifierOutput)
+from transformers.modeling_utils import (PreTrainedModel,
+                                         apply_chunking_to_forward,
+                                         find_pruneable_heads_and_indices,
+                                         prune_linear_layer)
 from transformers.models.bert.configuration_bert import BertConfig
+from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
@@ -124,11 +114,15 @@ class BertSelfAttention(nn.Module):
         self.num_attention_heads = config.num_attention_heads
 
         if is_causal_attention:
-            self.attention_head_size = int(config.encoder_width / config.num_attention_heads)
+            self.attention_head_size = int(
+                config.encoder_width / config.num_attention_heads
+            )
             self.all_head_size = self.num_attention_heads * self.attention_head_size
             self.query = nn.Linear(config.encoder_width, self.all_head_size)
         else:
-            self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
+            self.attention_head_size = int(
+                config.hidden_size / config.num_attention_heads
+            )
             self.all_head_size = self.num_attention_heads * self.attention_head_size
             self.query = nn.Linear(config.hidden_size, self.all_head_size)
         if is_cross_attention or is_causal_attention:
@@ -286,7 +280,9 @@ class BertSelfOutput(nn.Module):
         super().__init__()
         if is_causal_attention:
             self.dense = nn.Linear(config.encoder_width, config.encoder_width)
-            self.LayerNorm = nn.LayerNorm(config.encoder_width, eps=config.layer_norm_eps)
+            self.LayerNorm = nn.LayerNorm(
+                config.encoder_width, eps=config.layer_norm_eps
+            )
         else:
             self.dense = nn.Linear(config.hidden_size, config.hidden_size)
             self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -411,7 +407,9 @@ class BertLayer(nn.Module):
 
         # Causal encoder
         if getattr(self.config, "causal_encoder", False):
-            self.encoder_causal_attention = BertAttention(config, is_causal_attention=True)
+            self.encoder_causal_attention = BertAttention(
+                config, is_causal_attention=True
+            )
 
     def forward(
         self,
@@ -589,16 +587,35 @@ class BertEncoder(nn.Module):
             if segsize != 0:
                 if i != 0:
                     hidden_states = hidden_states[:, :-query_length]
-                prev_hidden_states = hidden_states[:, :query_length].reshape(-1, segsize*query_length, hidden_states.size(-1))
+                prev_hidden_states = hidden_states[:, :query_length].reshape(
+                    -1, segsize * query_length, hidden_states.size(-1)
+                )
                 prev_hidden_states = prev_hidden_states[:, :-query_length]
                 prev_hidden_states = torch.cat(
-                    [prev_hidden_states.new_zeros(prev_hidden_states.size(0), query_length, prev_hidden_states.size(-1)), prev_hidden_states],
+                    [
+                        prev_hidden_states.new_zeros(
+                            prev_hidden_states.size(0),
+                            query_length,
+                            prev_hidden_states.size(-1),
+                        ),
+                        prev_hidden_states,
+                    ],
                     dim=1,
                 )
-                prev_hidden_states = prev_hidden_states.view(hidden_states.size(0), query_length, -1)
+                prev_hidden_states = prev_hidden_states.view(
+                    hidden_states.size(0), query_length, -1
+                )
                 hidden_states = torch.cat([hidden_states, prev_hidden_states], dim=1)
                 if attention_mask.size(-1) != hidden_states.size(1):
-                    attention_mask = torch.cat([attention_mask, attention_mask.new_zeros(attention_mask.size(0), 1, 1, query_length)], dim=-1)
+                    attention_mask = torch.cat(
+                        [
+                            attention_mask,
+                            attention_mask.new_zeros(
+                                attention_mask.size(0), 1, 1, query_length
+                            ),
+                        ],
+                        dim=-1,
+                    )
             if use_cache:
                 next_decoder_cache += (layer_outputs[-1],)
             if output_attentions:
@@ -954,12 +971,23 @@ class BertModel(BertPreTrainedModel):
 
             # Encoder causal masks
             encoder_causal_mask = None
-            if getattr(self.config, "causal_encoder", False) and encoder_sequence_length % 32 == 0:
-                encoder_causal_mask = torch.triu(torch.ones(encoder_sequence_length//32, encoder_sequence_length//32)).to(encoder_hidden_states.device)
+            if (
+                getattr(self.config, "causal_encoder", False)
+                and encoder_sequence_length % 32 == 0
+            ):
+                encoder_causal_mask = torch.triu(
+                    torch.ones(
+                        encoder_sequence_length // 32, encoder_sequence_length // 32
+                    )
+                ).to(encoder_hidden_states.device)
                 mat2 = torch.ones(32, 32).to(encoder_hidden_states.device)
                 encoder_causal_mask = torch.kron(encoder_causal_mask, mat2)
-                encoder_causal_mask = encoder_causal_mask.unsqueeze(0).repeat(encoder_batch_size, 1, 1)
-                encoder_causal_mask = self.invert_attention_mask(encoder_causal_mask).unsqueeze(1)
+                encoder_causal_mask = encoder_causal_mask.unsqueeze(0).repeat(
+                    encoder_batch_size, 1, 1
+                )
+                encoder_causal_mask = self.invert_attention_mask(
+                    encoder_causal_mask
+                ).unsqueeze(1)
 
             if type(encoder_attention_mask) == list:
                 encoder_extended_attention_mask = [

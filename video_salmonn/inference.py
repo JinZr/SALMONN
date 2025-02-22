@@ -1,18 +1,17 @@
-import os
-from config.config import Config
 import argparse
-import yaml
 import json
-from omegaconf import OmegaConf
+import os
+from datetime import datetime
 
+import torch
+import yaml
 from datasets import SupervisedAudioVisualDataset4Test
 from model.openllama import OpenLLAMAPEFTModel
+from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import torch
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from datetime import datetime
+
+from config.config import Config
 
 
 def parse_args():
@@ -49,7 +48,7 @@ OmegaConf.save(args, os.path.join(decode_root, "config.yaml"))
 
 # Initialise the model
 ds_engine = OpenLLAMAPEFTModel(**args)
-delta_ckpt = torch.load(args['delta_ckpt_path'], map_location=torch.device('cpu'))
+delta_ckpt = torch.load(args["delta_ckpt_path"], map_location=torch.device("cpu"))
 ds_engine.load_state_dict(delta_ckpt, strict=False)
 ds_engine = ds_engine.eval().half().to(device)
 
@@ -60,7 +59,7 @@ for modality, task, data_path in all_decode_info:
 
     if modality == "audio":
         dataset = SupervisedAudioVisualDataset4Test(
-            'audio',
+            "audio",
             audio_data_path=data_path,
             use_whisper=args["use_whisper"],
             training=False,
@@ -70,7 +69,7 @@ for modality, task, data_path in all_decode_info:
         )
     elif modality == "audioimage":
         dataset = SupervisedAudioVisualDataset4Test(
-            'audioimage',
+            "audioimage",
             audio_data_path="./dummy/dummy_audio.json",
             image_data_path=data_path,
             use_whisper=args["use_whisper"],
@@ -81,7 +80,7 @@ for modality, task, data_path in all_decode_info:
         )
     elif modality == "audiovideoimage":
         dataset = SupervisedAudioVisualDataset4Test(
-            'audiovideoimage',
+            "audiovideoimage",
             audio_data_path="./dummy/dummy_audio.json",
             video_data_path=data_path,
             use_whisper=args["use_whisper"],
@@ -93,36 +92,40 @@ for modality, task, data_path in all_decode_info:
 
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=args['batch_size'],
+        batch_size=args["batch_size"],
         num_workers=3,
         shuffle=False,
         collate_fn=dataset.collate,
-        drop_last=False
+        drop_last=False,
     )
-   
+
     dataloader_lst.append([dataloader, task])
 
 # Start inference
 results = []
-pbar = tqdm(total=sum([len(dataloader) for dataloader, _ in dataloader_lst]), desc="Decoding", position=0)
+pbar = tqdm(
+    total=sum([len(dataloader) for dataloader, _ in dataloader_lst]),
+    desc="Decoding",
+    position=0,
+)
 
 for dataloader, task in dataloader_lst:
     for batch_i, batch in enumerate(dataloader):
         with torch.no_grad():
             text = ds_engine(batch, generate=True)
             print(text)
-            for gen, ref, id in zip(text, batch['output_texts'], batch['orig_paths']):
+            for gen, ref, id in zip(text, batch["output_texts"], batch["orig_paths"]):
                 results.append(
                     {
                         "id": f"{str(id)}_{ref[0]['value']}",
                         "conversation": ref,
                         "task": task,
-                        "ref_answer": ref[1]['value'],
-                        "gen_answer": gen
+                        "ref_answer": ref[1]["value"],
+                        "gen_answer": gen,
                     }
                 )
             pbar.update(1)
 
 # Write the results out
-with open(os.path.join(decode_root, f"eval_result.json"), "w", encoding='utf-8') as f:
+with open(os.path.join(decode_root, f"eval_result.json"), "w", encoding="utf-8") as f:
     json.dump(results, f, indent=4, ensure_ascii=False)

@@ -1,5 +1,6 @@
 from omegaconf import OmegaConf
 
+
 class Config:
     def __init__(self, args):
         self.config = {}

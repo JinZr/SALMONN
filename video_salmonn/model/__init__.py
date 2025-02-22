@@ -1,9 +1,10 @@
 from .agent import DeepSpeedAgent
 from .openllama import OpenLLAMAPEFTModel
 
+
 def load_model(args):
-    agent_name = args['models'][args['model']]['agent_name']
-    model_name = args['models'][args['model']]['model_name']
+    agent_name = args["models"][args["model"]]["agent_name"]
+    model_name = args["models"][args["model"]]["model_name"]
     model = globals()[model_name](**args)
     for name, module in model.named_children():
         if hasattr(module, "gradient_checkpointing_enable"):
