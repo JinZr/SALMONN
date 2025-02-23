@@ -18,7 +18,7 @@ model:
   whisper_path: "/home/jinzr/hdd/speech_accessibility/SALMONN-13B/whisper-large-v2"
   beats_path: "/home/jinzr/hdd/speech_accessibility/SALMONN-13B/beats/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt"
 
-  ckpt: "/home/jinzr/hdd/speech_accessibility/SALMONN-13B/salmonn_v1.pth" 
+  ckpt: "/home/jinzr/nfs/projects/SALMONN/SALMONN-13B-ft-w-scores/202502200045/checkpoint_best.pth" 
   # if not "", load model from ckpt for training or evaluation
 
   freeze_whisper: True
@@ -50,8 +50,10 @@ model:
 
 datasets:
   train_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/train.json"
-  valid_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
-  test_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
+  # valid_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
+  # test_ann_path: "/home/jinzr/nfs/projects/SALMONN/data/assess_with_scores/dev.json"
+  valid_ann_path: "/home/jinzr/nfs/projects/qualispeech/salmonn_qa_pairs_filtered/08626c89-3dbd-4756-488d-08db66e486e4.json"
+  test_ann_path: "/home/jinzr/nfs/projects/qualispeech/salmonn_qa_pairs_filtered/08626c89-3dbd-4756-488d-08db66e486e4.json"
 
   whisper_path: "/home/jinzr/hdd/speech_accessibility/SALMONN-13B/whisper-large-v2"
 
@@ -66,7 +68,7 @@ run:
   iters_per_epoch: 3000
   accum_grad_iters: 1
   batch_size_train: 4
-  batch_size_eval: 8
+  batch_size_eval: 4
   num_workers: 8
 
   device: "cuda"

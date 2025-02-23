@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import json
+from pathlib import Path
+from typing import List, Tuple, Dict
+
 import tabulate
 from tqdm import tqdm
 
@@ -73,6 +77,7 @@ def print_task_table(title: str, score_dict: Dict[str, List]):
         )
     )
     print()
+
     with open("task_accuracy.csv", "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["Task", "Total", "Score Accuracy", "Level Accuracy"])
@@ -156,7 +161,11 @@ def main():
                 total_acc_dict["score_correct"] += 1
             if text == ground_truth_text:
                 total_acc_dict["level_correct"] += 1
+<<<<<<< HEAD
     print_task_table("Task Accuracy Table", task_acc_dict)
+=======
+    print_task_table("Task Accuract Table", task_acc_dict)
+>>>>>>> 8529e0fd2d69b519361c555f773e59d97b376e0c
     # print_total_table("Total Accuracy Table", total_acc_dict)
 
 

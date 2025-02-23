@@ -26,6 +26,13 @@ class Config:
         user_config = self._build_opt_list(self.args.options)
         config = OmegaConf.load(self.args.cfg_path)
         config = OmegaConf.merge(config, user_config)
+
+        try:
+            dataset_config = OmegaConf.load(self.args.dataset_cfg)
+            self.dataset_config = dataset_config
+        except:
+            self.dataset_config = None
+
         self.config = config
 
     def _convert_to_dot_list(self, opts):
