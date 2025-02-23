@@ -160,15 +160,8 @@ def main():
                 total_acc_dict["score_correct"] += 1
             if text == ground_truth_text:
                 total_acc_dict["level_correct"] += 1
-<<<<<<< HEAD
-<<<<<<< HEAD
+
     print_task_table("Task Accuracy Table", task_acc_dict)
-=======
-    print_task_table("Task Accuract Table", task_acc_dict)
->>>>>>> 8529e0fd2d69b519361c555f773e59d97b376e0c
-=======
-    print_task_table("Task Accuract Table", task_acc_dict)
->>>>>>> 8529e0fd2d69b519361c555f773e59d97b376e0c
     # print_total_table("Total Accuracy Table", total_acc_dict)
 
 
