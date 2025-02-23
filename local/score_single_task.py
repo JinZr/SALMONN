@@ -84,7 +84,6 @@ def print_task_table(title: str, score_dict: Dict[str, List]):
         for row in table:
             writer.writerow(row)
 
-
 def print_total_table(title: str, total_acc_dict: Dict[str, int]):
     print(title)
     table = []
