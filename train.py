@@ -53,11 +53,9 @@ def setup_seeds(config):
 
 
 def main():
-    # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
-    job_id = now()
-
     # load config
     cfg = Config(parse_args())
+    job_id = cfg.config.get("job_id",now())
     run_config = cfg.config.run
     model_config = cfg.config.model
     data_config = cfg.config.datasets
