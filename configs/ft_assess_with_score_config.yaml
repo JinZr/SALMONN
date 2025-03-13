@@ -62,8 +62,8 @@ run:
   evaluate: False # if True, only evaluate model on test data
 
   log_freq: 5
-  epoch_based: False
-  iters_per_epoch: 3000
+  epoch_based: True
+  # iters_per_epoch: 3000
   accum_grad_iters: 1
   batch_size_train: 8
   batch_size_eval: 8
@@ -77,7 +77,7 @@ run:
 
   # optimizer & scheduler
   optims:
-    max_epoch: 2
+    max_epoch: 1
     warmup_steps: 3000
     warmup_start_lr: 1e-6
     init_lr: 3e-5
